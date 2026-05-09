@@ -1,0 +1,21 @@
+Wokwi Project Setup — VitalSense ESP32
+
+1. Go to https://wokwi.com/projects/new/esp32
+2. Paste the contents of sketch.ino into the code editor.
+3. Paste the contents of diagram.json into the diagram editor.
+4. Click the library manager icon (book icon) and add:
+     - DHTesp
+     - PubSubClient
+     - ArduinoJson
+   (all listed in libraries.txt)
+5. Set PATIENT_ID in sketch.ino to the desired patient ID (P001–P005).
+6. Hit the green Play button.
+   - The ESP32 will join Wokwi-GUEST WiFi automatically.
+   - It will connect to broker.hivemq.com (public HiveMQ broker — no credentials needed).
+   - It publishes JSON vitals to: vitalsense/abhishek/patients every 500 ms.
+
+Backend config (config.py):
+  MQTT_BROKER = "broker.hivemq.com"
+  MQTT_TOPIC  = "vitalsense/abhishek/patients"
+
+Run multiple browser tabs with different PATIENT_ID values to simulate several patients.

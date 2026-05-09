@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VitalSense Dashboard</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+    header {
+      background: #1e293b;
+      border-bottom: 1px solid #334155;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header h1 { font-size: 1.3rem; font-weight: 700; letter-spacing: 0.05em; color: #f8fafc; }
+    header h1 span { color: #38bdf8; }
+
+    .header-right { display: flex; align-items: center; gap: 16px; font-size: 0.8rem; color: #94a3b8; }
+    .mqtt-dot { width: 10px; height: 10px; border-radius: 50%; background: #ef4444; display: inline-block; margin-right: 6px; transition: background 0.3s; }
+    .mqtt-dot.connected { background: #22c55e; }
+
+    .triage-bar {
+      background: #1e293b;
+      border-bottom: 1px solid #334155;
+      padding: 10px 24px;
+      display: flex;
+      gap: 24px;
+      align-items: center;
+      font-size: 0.82rem;
+    }
+    .triage-pill {
+      padding: 4px 14px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.8rem;
+    }
+    .pill-green { background: #166534; color: #86efac; }
+    .pill-yellow { background: #713f12; color: #fde68a; }
+    .pill-red { background: #7f1d1d; color: #fca5a5; }
+    .triage-label { color: #64748b; }
+
+    .alert-banner {
+      background: #7f1d1d;
+      border: 1px solid #ef4444;
+      color: #fca5a5;
+      padding: 10px 24px;
+      font-size: 0.85rem;
+      display: none;
+      animation: pulse-bg 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse-bg {
+      0%, 100% { background: #7f1d1d; }
+      50% { background: #991b1b; }
+    }
+
+    .main { padding: 24px; }
+    .section-title { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 14px; }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .patient-card {
+      background: #1e293b;
+      border: 2px solid #334155;
+      border-radius: 12px;
+      padding: 18px;
+      transition: border-color 0.3s, box-shadow 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+    .patient-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: #334155;
+      transition: background 0.3s;
+    }
+    .patient-card.severity-Green { border-color: #166534; }
+    .patient-card.severity-Green::before { background: #22c55e; }
+    .patient-card.severity-Yellow { border-color: #854d0e; }
+    .patient-card.severity-Yellow::before { background: #f59e0b; }
+    .patient-card.severity-Red { border-color: #991b1b; box-shadow: 0 0 16px rgba(239,68,68,0.2); }
+    .patient-card.severity-Red::before { background: #ef4444; }
+
+    .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
+    .patient-id { font-size: 1rem; font-weight: 700; color: #f1f5f9; }
+    .severity-badge {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .badge-Green { background: #166534; color: #86efac; }
+    .badge-Yellow { background: #713f12; color: #fde68a; }
+    .badge-Red { background: #7f1d1d; color: #fca5a5; }
+
+    .vitals-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+    .vital-item { background: #0f172a; border-radius: 8px; padding: 10px 12px; }
+    .vital-label { font-size: 0.68rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 3px; }
+    .vital-value { font-size: 1.1rem; font-weight: 700; color: #f1f5f9; }
+    .vital-unit { font-size: 0.7rem; color: #94a3b8; margin-left: 2px; }
+
+    .card-footer { display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem; color: #64748b; margin-top: 10px; }
+    .confidence { color: #38bdf8; font-weight: 600; }
+
+    .alert-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      display: none;
+    }
+    .alert-badge.building { background: #7f1d1d; color: #fca5a5; display: inline-block; }
+    .alert-badge.sent { background: #ef4444; color: #fff; display: inline-block; }
+
+    .waiting-msg {
+      text-align: center;
+      padding: 60px 24px;
+      color: #475569;
+    }
+    .waiting-msg .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid #334155;
+      border-top-color: #38bdf8;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .waiting-msg p { font-size: 0.95rem; }
+    .waiting-msg small { font-size: 0.8rem; color: #334155; }
+
+    footer {
+      text-align: center;
+      padding: 20px;
+      font-size: 0.75rem;
+      color: #334155;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Vital<span>Sense</span> &mdash; Patient Monitor</h1>
+  <div class="header-right">
+    <span><span class="mqtt-dot" id="mqtt-dot"></span><span id="mqtt-label">Connecting…</span></span>
+    <span id="active-count">0 active patients</span>
+    <span id="server-time"></span>
+  </div>
+</header>
+
+<div class="triage-bar">
+  <span class="triage-label">Triage:</span>
+  <span class="triage-pill pill-green" id="count-green">Green: 0</span>
+  <span class="triage-pill pill-yellow" id="count-yellow">Yellow: 0</span>
+  <span class="triage-pill pill-red" id="count-red">Red: 0</span>
+</div>
+
+<div class="alert-banner" id="alert-banner"></div>
+
+<div class="main">
+  <div class="section-title">Live Patient Feed</div>
+
+  <div class="cards-grid" id="cards-grid">
+    <div class="waiting-msg" id="waiting-msg">
+      <div class="spinner"></div>
+      <p>Waiting for patient data…</p>
+      <small>Ensure the MQTT broker is reachable and patients are publishing.</small>
+    </div>
+  </div>
+</div>
+
+<footer>VitalSense &mdash; Real-time Patient Monitoring &mdash; Powered by Flask-SocketIO</footer>
+
+<script>
+  const socket = io();
+  const cards = {};
+
+  // Seed data on load
+  fetch("/api/patients").then(r => r.json()).then(patients => {
+    patients.forEach(p => upsertCard(p));
+  });
+
+  fetch("/api/summary").then(r => r.json()).then(updateTriage);
+
+  // Status polling
+  function pollStatus() {
+    fetch("/api/status").then(r => r.json()).then(d => {
+      const dot = document.getElementById("mqtt-dot");
+      const lbl = document.getElementById("mqtt-label");
+      const cnt = document.getElementById("active-count");
+      if (d.mqtt.mqtt_connected) {
+        dot.classList.add("connected");
+        lbl.textContent = `Connected to ${d.mqtt.broker}`;
+      } else {
+        dot.classList.remove("connected");
+        lbl.textContent = `Disconnected (attempt #${d.mqtt.reconnect_attempts})`;
+      }
+      cnt.textContent = `${d.patients.active} active patient${d.patients.active !== 1 ? "s" : ""}`;
+    }).catch(() => {});
+  }
+  pollStatus();
+  setInterval(pollStatus, 10000);
+
+  // Clock
+  setInterval(() => {
+    document.getElementById("server-time").textContent = new Date().toLocaleTimeString();
+  }, 1000);
+
+  // Live updates
+  socket.on("patient_update", upsertCard);
+  socket.on("summary_update", updateTriage);
+  socket.on("alert_update", updateAlertBadge);
+
+  function upsertCard(data) {
+    const grid = document.getElementById("cards-grid");
+    const waiting = document.getElementById("waiting-msg");
+    if (waiting) waiting.remove();
+
+    const pid = data.patient_id;
+    let card = cards[pid];
+
+    if (!card) {
+      card = document.createElement("div");
+      card.className = "patient-card";
+      card.id = `card-${pid}`;
+      card.innerHTML = cardHTML(data);
+      grid.appendChild(card);
+      cards[pid] = card;
+      socket.emit("subscribe_patient", { patient_id: pid });
+    } else {
+      card.innerHTML = cardHTML(data);
+    }
+
+    card.className = `patient-card severity-${data.severity}`;
+  }
+
+  function cardHTML(d) {
+    const ts = d.last_seen ? new Date(d.last_seen * 1000).toLocaleTimeString() : "—";
+    return `
+      <div class="card-header">
+        <span class="patient-id">Patient ${d.patient_id}</span>
+        <span class="severity-badge badge-${d.severity}">${d.severity}</span>
+      </div>
+      <div class="vitals-grid">
+        <div class="vital-item">
+          <div class="vital-label">Heart Rate</div>
+          <div class="vital-value">${d.heart_rate ?? "—"}<span class="vital-unit">bpm</span></div>
+        </div>
+        <div class="vital-item">
+          <div class="vital-label">SpO₂</div>
+          <div class="vital-value">${d.spo2 ?? "—"}<span class="vital-unit">%</span></div>
+        </div>
+        <div class="vital-item">
+          <div class="vital-label">Temperature</div>
+          <div class="vital-value">${d.temperature ?? "—"}<span class="vital-unit">°C</span></div>
+        </div>
+        <div class="vital-item">
+          <div class="vital-label">Movement</div>
+          <div class="vital-value">${d.movement ?? "—"}</div>
+        </div>
+      </div>
+      <div class="card-footer">
+        <span class="confidence">Conf: ${d.confidence}%</span>
+        <span id="alert-badge-${d.patient_id}" class="alert-badge"></span>
+        <span>Updated: ${ts}</span>
+      </div>`;
+  }
+
+  function updateTriage(summary) {
+    document.getElementById("count-green").textContent = `Green: ${summary.severity_counts.Green ?? 0}`;
+    document.getElementById("count-yellow").textContent = `Yellow: ${summary.severity_counts.Yellow ?? 0}`;
+    document.getElementById("count-red").textContent = `Red: ${summary.severity_counts.Red ?? 0}`;
+
+    const banner = document.getElementById("alert-banner");
+    if (summary.red_patients && summary.red_patients.length > 0) {
+      const names = summary.red_patients.map(p => p.patient_id).join(", ");
+      banner.textContent = `⚠ CRITICAL: ${summary.red_patients.length} patient(s) in RED — ${names}`;
+      banner.style.display = "block";
+    } else {
+      banner.style.display = "none";
+    }
+  }
+
+  function updateAlertBadge(data) {
+    const badge = document.getElementById(`alert-badge-${data.patient_id}`);
+    if (!badge) return;
+    if (data.sms_sent) {
+      badge.textContent = "SMS sent ✓";
+      badge.className = "alert-badge sent";
+    } else if (data.consecutive_red_readings > 0) {
+      badge.textContent = `${data.consecutive_red_readings}/${data.alert_threshold} RED`;
+      badge.className = "alert-badge building";
+    } else {
+      badge.textContent = "";
+      badge.className = "alert-badge";
+    }
+  }
+</script>
+</body>
+</html>
