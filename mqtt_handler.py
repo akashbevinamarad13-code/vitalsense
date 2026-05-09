@@ -53,16 +53,22 @@ def on_message(client, userdata, msg):
         print(f"[mqtt_handler] Classification error for {patient_id}: {e}")
         return
 
+    def _get(d, *keys, default=None):
+        for k in keys:
+            if k in d:
+                return d[k]
+        return default
+
     emit_payload = {
-        "patient_id": patient_id,
-        "heart_rate": payload.get("heart_rate"),
-        "spo2": payload.get("spo2"),
-        "temperature": payload.get("temperature", payload.get("body_temp")),
-        "movement": payload.get("movement", 0.0),
+        "patient_id":  patient_id,
+        "heart_rate":  _get(payload, "heart_rate", "hr", "heartRate", "heart_rate_bpm"),
+        "spo2":        _get(payload, "spo2", "SpO2", "spO2", "oxygen_saturation"),
+        "temperature": _get(payload, "temperature", "body_temp", "temp"),
+        "movement":    _get(payload, "movement", "accel", "activity", default=0.0),
         "severity_int": severity_int,
-        "severity": severity,
-        "color": color,
-        "confidence": confidence,
+        "severity":    severity,
+        "color":       color,
+        "confidence":  confidence,
     }
 
     patient_store.update(patient_id, emit_payload)
