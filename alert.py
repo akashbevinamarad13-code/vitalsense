@@ -2,6 +2,7 @@ import config
 
 _consecutive_red = {}
 _alerted = set()
+_sms_enabled = config.SMS_ALERTS_ENABLED
 
 try:
     from twilio.rest import Client as TwilioClient
@@ -9,7 +10,29 @@ try:
 except ImportError:
     _twilio_available = False
 
+def set_sms_enabled(enabled: bool):
+    global _sms_enabled
+    _sms_enabled = enabled
+    print(f"[alert] SMS alerts {'enabled' if enabled else 'disabled'}")
+
+def is_sms_enabled():
+    return _sms_enabled
+
+def reset_all():
+    global _consecutive_red, _alerted
+    _consecutive_red.clear()
+    _alerted.clear()
+    print("[alert] All alert counters reset")
+
+def reset_patient(patient_id):
+    _consecutive_red.pop(patient_id, None)
+    _alerted.discard(patient_id)
+    print(f"[alert] Alert counter reset for {patient_id}")
+
 def _send_sms(patient_id):
+    if not _sms_enabled:
+        print(f"[alert] SMS disabled — skipping for {patient_id}")
+        return
     if not _twilio_available:
         print(f"[alert] Twilio not installed — skipping SMS for {patient_id}")
         return

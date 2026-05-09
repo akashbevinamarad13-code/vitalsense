@@ -142,6 +142,29 @@
     .waiting-msg p { font-size: 0.95rem; }
     .waiting-msg small { font-size: 0.8rem; color: #334155; }
 
+    .controls-bar {
+      background: #1e293b;
+      border-bottom: 1px solid #334155;
+      padding: 8px 24px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .btn {
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-sms-on  { background: #166534; color: #86efac; }
+    .btn-sms-off { background: #7f1d1d; color: #fca5a5; }
+    .btn-reset   { background: #1e3a5f; color: #93c5fd; }
+    .sms-status  { font-size: 0.78rem; color: #94a3b8; }
+
     footer {
       text-align: center;
       padding: 20px;
@@ -169,6 +192,12 @@
 </div>
 
 <div class="alert-banner" id="alert-banner"></div>
+
+<div class="controls-bar">
+  <span class="sms-status">SMS Alerts:</span>
+  <button class="btn btn-sms-off" id="btn-sms-toggle" onclick="toggleSms()">Loading…</button>
+  <button class="btn btn-reset" onclick="resetAlerts()">Reset All Alert Counters</button>
+</div>
 
 <div class="main">
   <div class="section-title">Live Patient Feed</div>
@@ -219,10 +248,52 @@
     document.getElementById("server-time").textContent = new Date().toLocaleTimeString();
   }, 1000);
 
+  // SMS toggle state
+  let _smsEnabled = true;
+
+  function syncSmsButton(enabled) {
+    _smsEnabled = enabled;
+    const btn = document.getElementById("btn-sms-toggle");
+    if (enabled) {
+      btn.textContent = "SMS ON — click to disable";
+      btn.className = "btn btn-sms-on";
+    } else {
+      btn.textContent = "SMS OFF — click to enable";
+      btn.className = "btn btn-sms-off";
+    }
+  }
+
+  function toggleSms() {
+    const endpoint = _smsEnabled ? "/api/alerts/sms/disable" : "/api/alerts/sms/enable";
+    fetch(endpoint, { method: "POST" })
+      .then(r => r.json())
+      .then(d => syncSmsButton(d.sms_enabled));
+  }
+
+  function resetAlerts() {
+    fetch("/api/alerts/reset", { method: "POST" })
+      .then(r => r.json())
+      .then(() => {
+        document.querySelectorAll(".alert-badge").forEach(el => {
+          el.textContent = "";
+          el.className = "alert-badge";
+        });
+      });
+  }
+
+  // Load initial SMS state
+  fetch("/api/alerts/sms").then(r => r.json()).then(d => syncSmsButton(d.sms_enabled));
+
   // Live updates
   socket.on("patient_update", upsertCard);
   socket.on("summary_update", updateTriage);
   socket.on("alert_update", updateAlertBadge);
+  socket.on("alert_reset", () => {
+    document.querySelectorAll(".alert-badge").forEach(el => {
+      el.textContent = "";
+      el.className = "alert-badge";
+    });
+  });
 
   function upsertCard(data) {
     const grid = document.getElementById("cards-grid");

@@ -15,3 +15,4 @@ FLASK_DEBUG = False
 
 ALERT_THRESHOLD = 3
 HISTORY_MAX_SIZE = 200
+SMS_ALERTS_ENABLED = os.environ.get("SMS_ALERTS_ENABLED", "true").lower() == "true"
