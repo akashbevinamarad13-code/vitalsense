@@ -7,12 +7,3 @@ scikit-learn
 numpy
 pandas
 twilio
-eventlet
-flask
-flask-socketio
-joblib
-numpy
-paho-mqtt
-pandas
-scikit-learn
-twilio

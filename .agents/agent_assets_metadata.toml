@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "wdxqCVc6JCCmBzqg5XuSC"
+uri = "file://vitalsense_backend.zip"
+type = "unspecified"
+title = "vitalsense_backend.zip — All 10 backend files"
