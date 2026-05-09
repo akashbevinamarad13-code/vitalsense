@@ -1,8 +1,30 @@
+import json
+import os
 import config
 
 _consecutive_red = {}
 _alerted = set()
-_sms_enabled = config.SMS_ALERTS_ENABLED
+
+_STATE_FILE = "sms_state.json"
+
+def _load_sms_state():
+    if os.path.exists(_STATE_FILE):
+        try:
+            with open(_STATE_FILE) as f:
+                return json.load(f).get("sms_enabled", config.SMS_ALERTS_ENABLED)
+        except Exception:
+            pass
+    return config.SMS_ALERTS_ENABLED
+
+def _save_sms_state(enabled: bool):
+    try:
+        with open(_STATE_FILE, "w") as f:
+            json.dump({"sms_enabled": enabled}, f)
+    except Exception as e:
+        print(f"[alert] Could not save SMS state: {e}")
+
+_sms_enabled = _load_sms_state()
+print(f"[alert] SMS alerts {'enabled' if _sms_enabled else 'disabled'} (loaded from state)")
 
 try:
     from twilio.rest import Client as TwilioClient
@@ -13,6 +35,7 @@ except ImportError:
 def set_sms_enabled(enabled: bool):
     global _sms_enabled
     _sms_enabled = enabled
+    _save_sms_state(enabled)
     print(f"[alert] SMS alerts {'enabled' if enabled else 'disabled'}")
 
 def is_sms_enabled():
@@ -29,7 +52,10 @@ def reset_patient(patient_id):
     _alerted.discard(patient_id)
     print(f"[alert] Alert counter reset for {patient_id}")
 
+_daily_limit_hit = False
+
 def _send_sms(patient_id):
+    global _daily_limit_hit
     if not _sms_enabled:
         print(f"[alert] SMS disabled — skipping for {patient_id}")
         return
@@ -38,6 +64,9 @@ def _send_sms(patient_id):
         return
     if not all([config.TWILIO_SID, config.TWILIO_TOKEN, config.TWILIO_FROM, config.NURSE_NUMBER]):
         print(f"[alert] Twilio credentials not configured — skipping SMS for {patient_id}")
+        return
+    if _daily_limit_hit:
+        print(f"[alert] Twilio daily limit already reached — skipping SMS for {patient_id}")
         return
     try:
         client = TwilioClient(config.TWILIO_SID, config.TWILIO_TOKEN)
@@ -48,7 +77,12 @@ def _send_sms(patient_id):
         )
         print(f"[alert] SMS sent successfully for patient {patient_id}. SID: {msg.sid}")
     except Exception as e:
-        print(f"[alert] SMS failed for patient {patient_id}: {e}")
+        err_str = str(e)
+        if "63038" in err_str or "daily messages limit" in err_str.lower():
+            _daily_limit_hit = True
+            print(f"[alert] Twilio daily 50-message limit reached. SMS silenced until server restart.")
+        else:
+            print(f"[alert] SMS failed for patient {patient_id}: {e}")
 
 def handle_alert(patient_id, severity_int):
     if severity_int == 2:

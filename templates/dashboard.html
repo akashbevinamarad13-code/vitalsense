@@ -160,10 +160,25 @@
       transition: opacity 0.15s;
     }
     .btn:hover { opacity: 0.85; }
-    .btn-sms-on  { background: #166534; color: #86efac; }
-    .btn-sms-off { background: #7f1d1d; color: #fca5a5; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-danger  { background: #7f1d1d; color: #fca5a5; }
+    .btn-success { background: #166534; color: #86efac; }
     .btn-reset   { background: #1e3a5f; color: #93c5fd; }
-    .sms-status  { font-size: 0.78rem; color: #94a3b8; }
+    .sms-status-label { font-size: 0.78rem; color: #94a3b8; }
+    .sms-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 999px;
+    }
+    .sms-indicator.on  { background: #166534; color: #86efac; }
+    .sms-indicator.off { background: #450a0a; color: #fca5a5; }
+    .sms-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+    .sms-indicator.on  .sms-dot { background: #4ade80; }
+    .sms-indicator.off .sms-dot { background: #f87171; }
 
     footer {
       text-align: center;
@@ -194,9 +209,13 @@
 <div class="alert-banner" id="alert-banner"></div>
 
 <div class="controls-bar">
-  <span class="sms-status">SMS Alerts:</span>
-  <button class="btn btn-sms-off" id="btn-sms-toggle" onclick="toggleSms()">Loading…</button>
-  <button class="btn btn-reset" onclick="resetAlerts()">Reset All Alert Counters</button>
+  <span class="sms-status-label">SMS Alerts:</span>
+  <span class="sms-indicator on" id="sms-indicator">
+    <span class="sms-dot"></span><span id="sms-indicator-text">ON</span>
+  </span>
+  <button class="btn btn-danger" id="btn-sms-disable" onclick="setSms(false)">Disable SMS</button>
+  <button class="btn btn-success" id="btn-sms-enable" onclick="setSms(true)" style="display:none">Enable SMS</button>
+  <button class="btn btn-reset" onclick="resetAlerts()">Reset Alert Counters</button>
 </div>
 
 <div class="main">
@@ -248,26 +267,34 @@
     document.getElementById("server-time").textContent = new Date().toLocaleTimeString();
   }, 1000);
 
-  // SMS toggle state
-  let _smsEnabled = true;
-
-  function syncSmsButton(enabled) {
-    _smsEnabled = enabled;
-    const btn = document.getElementById("btn-sms-toggle");
+  function applySmsState(enabled) {
+    const indicator     = document.getElementById("sms-indicator");
+    const indicatorText = document.getElementById("sms-indicator-text");
+    const btnDisable    = document.getElementById("btn-sms-disable");
+    const btnEnable     = document.getElementById("btn-sms-enable");
     if (enabled) {
-      btn.textContent = "SMS ON — click to disable";
-      btn.className = "btn btn-sms-on";
+      indicator.className     = "sms-indicator on";
+      indicatorText.textContent = "ON";
+      btnDisable.style.display  = "";
+      btnEnable.style.display   = "none";
     } else {
-      btn.textContent = "SMS OFF — click to enable";
-      btn.className = "btn btn-sms-off";
+      indicator.className     = "sms-indicator off";
+      indicatorText.textContent = "OFF";
+      btnDisable.style.display  = "none";
+      btnEnable.style.display   = "";
     }
   }
 
-  function toggleSms() {
-    const endpoint = _smsEnabled ? "/api/alerts/sms/disable" : "/api/alerts/sms/enable";
+  function setSms(enable) {
+    const btnDisable = document.getElementById("btn-sms-disable");
+    const btnEnable  = document.getElementById("btn-sms-enable");
+    btnDisable.disabled = true;
+    btnEnable.disabled  = true;
+    const endpoint = enable ? "/api/alerts/sms/enable" : "/api/alerts/sms/disable";
     fetch(endpoint, { method: "POST" })
       .then(r => r.json())
-      .then(d => syncSmsButton(d.sms_enabled));
+      .then(d => applySmsState(d.sms_enabled))
+      .catch(() => { btnDisable.disabled = false; btnEnable.disabled = false; });
   }
 
   function resetAlerts() {
@@ -281,8 +308,8 @@
       });
   }
 
-  // Load initial SMS state
-  fetch("/api/alerts/sms").then(r => r.json()).then(d => syncSmsButton(d.sms_enabled));
+  // Load initial SMS state from server — single authoritative fetch, no race condition
+  fetch("/api/alerts/sms").then(r => r.json()).then(d => applySmsState(d.sms_enabled));
 
   // Live updates
   socket.on("patient_update", upsertCard);

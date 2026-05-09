@@ -36,10 +36,20 @@ def _engineer_features(heart_rate, spo2, body_temp, movement):
     }
 
 def classify(model, features_order, vitals: dict):
-    heart_rate = float(vitals["heart_rate"])
-    spo2 = float(vitals["spo2"])
-    body_temp = float(vitals.get("temperature", vitals.get("body_temp", 37.0)))
-    movement = float(vitals.get("movement", 0.0))
+    heart_rate = float(
+        vitals.get("heart_rate",
+        vitals.get("hr",
+        vitals.get("heartRate",
+        vitals.get("heart_rate_bpm", None))))
+    )
+    spo2 = float(
+        vitals.get("spo2",
+        vitals.get("SpO2",
+        vitals.get("spO2",
+        vitals.get("oxygen_saturation", None))))
+    )
+    body_temp = float(vitals.get("body_temp", vitals.get("temperature", vitals.get("temp", 37.0))))
+    movement = float(vitals.get("movement", vitals.get("accel", vitals.get("activity", 0.0))))
 
     feature_dict = _engineer_features(heart_rate, spo2, body_temp, movement)
 
