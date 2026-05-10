@@ -45,3 +45,6 @@ TWILIO_TOKEN = "6fe988ef0f35b075c69d09870fa5164e"
 TWILIO_FROM = "+15717245417"
 NURSE_NUMBER = "+918123528157"
 PORT = "5000"
+
+[deployment]
+deploymentTarget = "cloudrun"
