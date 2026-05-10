@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Virtual environments / Replit deps
+.pythonlibs/
+.upm/
+.cache/
+.local/
+.agents/
+
+# Runtime / generated files
+sms_state.json
+*.zip
+
+# Model (regenerate with: python create_dummy_model.py)
+model.pkl
+
+# Environment secrets — never commit these
+.env
