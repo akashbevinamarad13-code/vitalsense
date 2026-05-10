@@ -3,409 +3,423 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VitalSense Dashboard</title>
+  <title>VitalSense Smart Triage Dashboard</title>
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
-
-    header {
-      background: #1e293b;
-      border-bottom: 1px solid #334155;
-      padding: 14px 24px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    header h1 { font-size: 1.3rem; font-weight: 700; letter-spacing: 0.05em; color: #f8fafc; }
-    header h1 span { color: #38bdf8; }
-
-    .header-right { display: flex; align-items: center; gap: 16px; font-size: 0.8rem; color: #94a3b8; }
-    .mqtt-dot { width: 10px; height: 10px; border-radius: 50%; background: #ef4444; display: inline-block; margin-right: 6px; transition: background 0.3s; }
-    .mqtt-dot.connected { background: #22c55e; }
-
-    .triage-bar {
-      background: #1e293b;
-      border-bottom: 1px solid #334155;
-      padding: 10px 24px;
-      display: flex;
-      gap: 24px;
-      align-items: center;
-      font-size: 0.82rem;
-    }
-    .triage-pill {
-      padding: 4px 14px;
-      border-radius: 999px;
-      font-weight: 600;
-      font-size: 0.8rem;
-    }
-    .pill-green { background: #166534; color: #86efac; }
-    .pill-yellow { background: #713f12; color: #fde68a; }
-    .pill-red { background: #7f1d1d; color: #fca5a5; }
-    .triage-label { color: #64748b; }
-
-    .alert-banner {
-      background: #7f1d1d;
-      border: 1px solid #ef4444;
-      color: #fca5a5;
-      padding: 10px 24px;
-      font-size: 0.85rem;
-      display: none;
-      animation: pulse-bg 1.5s ease-in-out infinite;
-    }
-    @keyframes pulse-bg {
-      0%, 100% { background: #7f1d1d; }
-      50% { background: #991b1b; }
-    }
-
-    .main { padding: 24px; }
-    .section-title { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 14px; }
-
-    .cards-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 16px;
-      margin-bottom: 32px;
-    }
-
-    .patient-card {
-      background: #1e293b;
-      border: 2px solid #334155;
-      border-radius: 12px;
-      padding: 18px;
-      transition: border-color 0.3s, box-shadow 0.3s;
-      position: relative;
-      overflow: hidden;
-    }
-    .patient-card::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 4px;
-      background: #334155;
-      transition: background 0.3s;
-    }
-    .patient-card.severity-Green { border-color: #166534; }
-    .patient-card.severity-Green::before { background: #22c55e; }
-    .patient-card.severity-Yellow { border-color: #854d0e; }
-    .patient-card.severity-Yellow::before { background: #f59e0b; }
-    .patient-card.severity-Red { border-color: #991b1b; box-shadow: 0 0 16px rgba(239,68,68,0.2); }
-    .patient-card.severity-Red::before { background: #ef4444; }
-
-    .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
-    .patient-id { font-size: 1rem; font-weight: 700; color: #f1f5f9; }
-    .severity-badge {
-      font-size: 0.72rem;
-      font-weight: 700;
-      padding: 3px 10px;
-      border-radius: 999px;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-    }
-    .badge-Green { background: #166534; color: #86efac; }
-    .badge-Yellow { background: #713f12; color: #fde68a; }
-    .badge-Red { background: #7f1d1d; color: #fca5a5; }
-
-    .vitals-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
-    .vital-item { background: #0f172a; border-radius: 8px; padding: 10px 12px; }
-    .vital-label { font-size: 0.68rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 3px; }
-    .vital-value { font-size: 1.1rem; font-weight: 700; color: #f1f5f9; }
-    .vital-unit { font-size: 0.7rem; color: #94a3b8; margin-left: 2px; }
-
-    .card-footer { display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem; color: #64748b; margin-top: 10px; }
-    .confidence { color: #38bdf8; font-weight: 600; }
-
-    .alert-badge {
-      font-size: 0.7rem;
-      font-weight: 700;
-      padding: 2px 8px;
-      border-radius: 999px;
-      display: none;
-    }
-    .alert-badge.building { background: #7f1d1d; color: #fca5a5; display: inline-block; }
-    .alert-badge.sent { background: #ef4444; color: #fff; display: inline-block; }
-
-    .waiting-msg {
-      text-align: center;
-      padding: 60px 24px;
-      color: #475569;
-    }
-    .waiting-msg .spinner {
-      width: 40px; height: 40px;
-      border: 3px solid #334155;
-      border-top-color: #38bdf8;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin: 0 auto 16px;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .waiting-msg p { font-size: 0.95rem; }
-    .waiting-msg small { font-size: 0.8rem; color: #334155; }
-
-    .controls-bar {
-      background: #1e293b;
-      border-bottom: 1px solid #334155;
-      padding: 8px 24px;
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
-    .btn {
-      padding: 6px 14px;
-      border-radius: 6px;
-      font-size: 0.78rem;
-      font-weight: 600;
-      border: none;
-      cursor: pointer;
-      transition: opacity 0.15s;
-    }
-    .btn:hover { opacity: 0.85; }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-danger  { background: #7f1d1d; color: #fca5a5; }
-    .btn-success { background: #166534; color: #86efac; }
-    .btn-reset   { background: #1e3a5f; color: #93c5fd; }
-    .sms-status-label { font-size: 0.78rem; color: #94a3b8; }
-    .sms-indicator {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 0.78rem;
-      font-weight: 600;
-      padding: 4px 10px;
-      border-radius: 999px;
-    }
-    .sms-indicator.on  { background: #166534; color: #86efac; }
-    .sms-indicator.off { background: #450a0a; color: #fca5a5; }
-    .sms-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
-    .sms-indicator.on  .sms-dot { background: #4ade80; }
-    .sms-indicator.off .sms-dot { background: #f87171; }
-
-    footer {
-      text-align: center;
-      padding: 20px;
-      font-size: 0.75rem;
-      color: #334155;
-    }
+    body { margin: 0; background: #020817; }
+    @keyframes pulse    { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    @keyframes spin     { to { transform: rotate(360deg); } }
+    @keyframes pulsebg  { 0%, 100% { background: #7f1d1d; } 50% { background: #991b1b; } }
+    .animate-pulse  { animation: pulse   2s  cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    .animate-spin   { animation: spin    0.8s linear infinite; }
+    .alert-pulse    { animation: pulsebg 1.5s ease-in-out infinite; }
   </style>
 </head>
 <body>
+  <div id="root"></div>
 
-<header>
-  <h1>Vital<span>Sense</span> &mdash; Patient Monitor</h1>
-  <div class="header-right">
-    <span><span class="mqtt-dot" id="mqtt-dot"></span><span id="mqtt-label">Connecting…</span></span>
-    <span id="active-count">0 active patients</span>
-    <span id="server-time"></span>
-  </div>
-</header>
+  <script type="text/babel">
+{% raw %}
+    const { useState, useEffect, useRef } = React;
 
-<div class="triage-bar">
-  <span class="triage-label">Triage:</span>
-  <span class="triage-pill pill-green" id="count-green">Green: 0</span>
-  <span class="triage-pill pill-yellow" id="count-yellow">Yellow: 0</span>
-  <span class="triage-pill pill-red" id="count-red">Red: 0</span>
-</div>
+    /* ── Single shared socket ──────────────────────────────────────────────── */
+    const socket = io();
 
-<div class="alert-banner" id="alert-banner"></div>
+    /* ── Severity maps ────────────────────────────────────────────────────── */
+    const STATUS_LABEL  = { Green: "STABLE",   Yellow: "WARNING",  Red: "CRITICAL" };
+    const BORDER_CLASS  = { Green: "border-green-500",  Yellow: "border-yellow-500",  Red: "border-red-500"  };
+    const TEXT_CLASS    = { Green: "text-green-400",    Yellow: "text-yellow-400",    Red: "text-red-400"    };
+    const BADGE_BG      = { Green: "bg-green-900 text-green-300", Yellow: "bg-yellow-900 text-yellow-300", Red: "bg-red-900 text-red-300" };
+    const ICON_EMOJI    = { Green: "❤️", Yellow: "⚠️", Red: "🚨" };
 
-<div class="controls-bar">
-  <span class="sms-status-label">SMS Alerts:</span>
-  <span class="sms-indicator on" id="sms-indicator">
-    <span class="sms-dot"></span><span id="sms-indicator-text">ON</span>
-  </span>
-  <button class="btn btn-danger" id="btn-sms-disable" onclick="setSms(false)">Disable SMS</button>
-  <button class="btn btn-success" id="btn-sms-enable" onclick="setSms(true)" style="display:none">Enable SMS</button>
-  <button class="btn btn-reset" onclick="resetAlerts()">Reset Alert Counters</button>
-</div>
+    function fmtTime(ts) {
+      return ts ? new Date(ts * 1000).toLocaleTimeString() : "—";
+    }
 
-<div class="main">
-  <div class="section-title">Live Patient Feed</div>
+    /* ── Lucide icon ──────────────────────────────────────────────────────── */
+    function Icon({ name, size = 18 }) {
+      const ref = useRef(null);
+      useEffect(() => {
+        if (ref.current && window.lucide && lucide[name]) {
+          ref.current.innerHTML = "";
+          const svg = lucide.createElement(lucide[name]);
+          svg.setAttribute("width",        size);
+          svg.setAttribute("height",       size);
+          svg.setAttribute("stroke",       "currentColor");
+          svg.setAttribute("stroke-width", "2");
+          svg.setAttribute("fill",         "none");
+          ref.current.appendChild(svg);
+        }
+      }, [name, size]);
+      return <span ref={ref} style={{ display: "inline-flex", alignItems: "center" }} />;
+    }
 
-  <div class="cards-grid" id="cards-grid">
-    <div class="waiting-msg" id="waiting-msg">
-      <div class="spinner"></div>
-      <p>Waiting for patient data…</p>
-      <small>Ensure the MQTT broker is reachable and patients are publishing.</small>
-    </div>
-  </div>
-</div>
+    /* ── Sidebar ──────────────────────────────────────────────────────────── */
+    function Sidebar({ mqttConnected, smsEnabled, setSmsEnabled, onResetAlerts }) {
+      const [busy, setBusy] = useState(false);
 
-<footer>VitalSense &mdash; Real-time Patient Monitoring &mdash; Powered by Flask-SocketIO</footer>
+      const nav = [
+        { icon: "LayoutDashboard", label: "Dashboard",  active: true },
+        { icon: "Users",           label: "Patients" },
+        { icon: "Bell",            label: "Alerts" },
+        { icon: "Monitor",         label: "Devices" },
+        { icon: "BarChart3",       label: "Analytics" },
+        { icon: "FileText",        label: "Reports" },
+        { icon: "Settings",        label: "Settings" },
+      ];
 
-<script>
-  const socket = io();
-  const cards = {};
-
-  // Seed data on load
-  fetch("/api/patients").then(r => r.json()).then(patients => {
-    patients.forEach(p => upsertCard(p));
-  });
-
-  fetch("/api/summary").then(r => r.json()).then(updateTriage);
-
-  // Status polling
-  function pollStatus() {
-    fetch("/api/status").then(r => r.json()).then(d => {
-      const dot = document.getElementById("mqtt-dot");
-      const lbl = document.getElementById("mqtt-label");
-      const cnt = document.getElementById("active-count");
-      if (d.mqtt.mqtt_connected) {
-        dot.classList.add("connected");
-        lbl.textContent = `Connected to ${d.mqtt.broker}`;
-      } else {
-        dot.classList.remove("connected");
-        lbl.textContent = `Disconnected (attempt #${d.mqtt.reconnect_attempts})`;
+      function toggleSms() {
+        setBusy(true);
+        const ep = smsEnabled ? "/api/alerts/sms/disable" : "/api/alerts/sms/enable";
+        fetch(ep, { method: "POST" })
+          .then(r => r.json())
+          .then(d => { setSmsEnabled(d.sms_enabled); setBusy(false); })
+          .catch(() => setBusy(false));
       }
-      cnt.textContent = `${d.patients.active} active patient${d.patients.active !== 1 ? "s" : ""}`;
-    }).catch(() => {});
-  }
-  pollStatus();
-  setInterval(pollStatus, 10000);
 
-  // Clock
-  setInterval(() => {
-    document.getElementById("server-time").textContent = new Date().toLocaleTimeString();
-  }, 1000);
+      return (
+        <div className="w-full lg:w-64 min-h-screen bg-[#071226] border-r border-blue-900 p-5 flex flex-col justify-between shrink-0">
+          <div>
+            {/* Logo */}
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold text-white">VitalSense</h1>
+              <p className="text-blue-400 text-sm">Smart Triage</p>
+            </div>
 
-  function applySmsState(enabled) {
-    const indicator     = document.getElementById("sms-indicator");
-    const indicatorText = document.getElementById("sms-indicator-text");
-    const btnDisable    = document.getElementById("btn-sms-disable");
-    const btnEnable     = document.getElementById("btn-sms-enable");
-    if (enabled) {
-      indicator.className     = "sms-indicator on";
-      indicatorText.textContent = "ON";
-      btnDisable.style.display  = "";
-      btnEnable.style.display   = "none";
-    } else {
-      indicator.className     = "sms-indicator off";
-      indicatorText.textContent = "OFF";
-      btnDisable.style.display  = "none";
-      btnEnable.style.display   = "";
+            {/* Navigation */}
+            <div className="space-y-1">
+              {nav.map(({ icon, label, active }) => (
+                <div key={label} className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors ${active ? "bg-blue-600 text-white" : "text-gray-400 hover:bg-[#0f172a] hover:text-white"}`}>
+                  <Icon name={icon} />
+                  <span className="text-sm font-medium">{label}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* SMS Controls */}
+            <div className="mt-8 bg-[#0f172a] rounded-2xl p-4 border border-blue-900">
+              <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">SMS Alerts</p>
+              <div className="flex items-center gap-2 mb-3">
+                <span className={`w-2 h-2 rounded-full ${smsEnabled ? "bg-green-400" : "bg-red-400"}`} />
+                <span className={`text-sm font-bold ${smsEnabled ? "text-green-400" : "text-red-400"}`}>
+                  {smsEnabled ? "Active" : "Disabled"}
+                </span>
+              </div>
+              <button
+                onClick={toggleSms}
+                disabled={busy}
+                className={`w-full py-2 rounded-xl text-sm font-semibold transition-colors mb-2 disabled:opacity-50 ${
+                  smsEnabled
+                    ? "bg-red-900 text-red-300 hover:bg-red-800"
+                    : "bg-green-900 text-green-300 hover:bg-green-800"
+                }`}
+              >
+                {smsEnabled ? "Disable SMS" : "Enable SMS"}
+              </button>
+              <button
+                onClick={onResetAlerts}
+                className="w-full py-2 rounded-xl text-sm font-semibold bg-blue-900 text-blue-300 hover:bg-blue-800 transition-colors"
+              >
+                Reset Alert Counters
+              </button>
+            </div>
+          </div>
+
+          {/* System status */}
+          <div className={`p-4 rounded-2xl border mt-6 bg-[#0f172a] ${mqttConnected ? "border-green-500" : "border-red-800"}`}>
+            <h2 className={`font-bold text-sm ${mqttConnected ? "text-green-400" : "text-red-400"}`}>
+              System Status
+            </h2>
+            <p className={`text-sm mt-2 ${mqttConnected ? "text-gray-300" : "text-red-400"}`}>
+              {mqttConnected ? "● All Systems Operational" : "● MQTT Disconnected"}
+            </p>
+            <p className="text-xs text-gray-600 mt-1">broker.hivemq.com</p>
+          </div>
+        </div>
+      );
     }
-  }
 
-  function setSms(enable) {
-    const btnDisable = document.getElementById("btn-sms-disable");
-    const btnEnable  = document.getElementById("btn-sms-enable");
-    btnDisable.disabled = true;
-    btnEnable.disabled  = true;
-    const endpoint = enable ? "/api/alerts/sms/enable" : "/api/alerts/sms/disable";
-    fetch(endpoint, { method: "POST" })
-      .then(r => r.json())
-      .then(d => applySmsState(d.sms_enabled))
-      .catch(() => { btnDisable.disabled = false; btnEnable.disabled = false; });
-  }
+    /* ── Stats cards ──────────────────────────────────────────────────────── */
+    function StatsCards({ summary }) {
+      const total  = summary.total_active            || 0;
+      const red    = summary.severity_counts?.Red    || 0;
+      const yellow = summary.severity_counts?.Yellow || 0;
+      const green  = summary.severity_counts?.Green  || 0;
 
-  function resetAlerts() {
-    fetch("/api/alerts/reset", { method: "POST" })
-      .then(r => r.json())
-      .then(() => {
-        document.querySelectorAll(".alert-badge").forEach(el => {
-          el.textContent = "";
-          el.className = "alert-badge";
-        });
+      const cards = [
+        { title: "Patients Active",  value: total,  color: "text-blue-400",   border: "border-blue-900"  },
+        { title: "Critical Cases",   value: red,    color: "text-red-400",    border: "border-red-900"   },
+        { title: "Warning Cases",    value: yellow, color: "text-yellow-400", border: "border-yellow-900"},
+        { title: "Stable Patients",  value: green,  color: "text-green-400",  border: "border-green-900" },
+      ];
+
+      return (
+        <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+          {cards.map(({ title, value, color, border }) => (
+            <div key={title} className={`bg-[#0f172a] p-6 rounded-2xl border ${border}`}>
+              <p className="text-gray-400 text-sm mb-2">{title}</p>
+              <h2 className={`text-5xl font-bold ${color}`}>{value}</h2>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    /* ── Patient card ─────────────────────────────────────────────────────── */
+    function PatientCard({ data, alertStatus }) {
+      const sev   = data.severity || "Green";
+      const label = STATUS_LABEL[sev]  || "UNKNOWN";
+      const isRed = sev === "Red";
+
+      const smsSent  = alertStatus?.sms_sent || false;
+      const redCount = alertStatus?.consecutive_red_readings || 0;
+      const thresh   = alertStatus?.alert_threshold || 3;
+      const building = !smsSent && redCount > 0;
+
+      return (
+        <div className={`bg-[#071226] border-2 ${BORDER_CLASS[sev] || "border-blue-900"} rounded-2xl p-6 transition-all ${isRed ? "shadow-lg shadow-red-900/30" : ""}`}>
+
+          {/* Header */}
+          <div className="flex justify-between items-start mb-5">
+            <div>
+              <h2 className="text-2xl font-bold text-white">{data.patient_id}</h2>
+              <p className={`text-sm font-semibold mt-0.5 ${TEXT_CLASS[sev]}`}>{label}</p>
+            </div>
+            <div className="flex flex-col items-end gap-1">
+              <span className={`text-xs font-bold px-3 py-1 rounded-full ${BADGE_BG[sev]}`}>
+                {sev.toUpperCase()}
+              </span>
+              <span className="text-xl">{ICON_EMOJI[sev]}</span>
+            </div>
+          </div>
+
+          {/* Vitals */}
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            {[
+              { label: "Heart Rate", val: data.heart_rate,  unit: "bpm" },
+              { label: "SpO₂",       val: data.spo2,        unit: "%"   },
+              { label: "Temp",       val: data.temperature, unit: "°C"  },
+              { label: "Movement",   val: data.movement,    unit: ""    },
+            ].map(({ label, val, unit }) => (
+              <div key={label} className="bg-[#0b1220] rounded-xl p-3">
+                <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">{label}</p>
+                <p className="text-white text-lg font-bold">
+                  {val ?? "—"}
+                  {val != null && unit && <span className="text-gray-400 text-xs ml-1">{unit}</span>}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Confidence bar */}
+          <div className="h-1 bg-gray-800 rounded-full overflow-hidden mb-3">
+            <div
+              className={`h-full rounded-full transition-all ${isRed ? "bg-red-500 animate-pulse" : sev === "Yellow" ? "bg-yellow-400" : "bg-green-400 animate-pulse"}`}
+              style={{ width: `${data.confidence || 0}%` }}
+            />
+          </div>
+
+          {/* Footer */}
+          <div className="flex justify-between items-center text-xs text-gray-500">
+            <span className="text-blue-400 font-semibold">Conf: {data.confidence}%</span>
+            <div className="flex items-center gap-1">
+              {smsSent  && <span className="bg-red-900 text-red-300 px-2 py-0.5 rounded-full font-bold">SMS sent ✓</span>}
+              {building && <span className="bg-yellow-900 text-yellow-300 px-2 py-0.5 rounded-full font-bold">{redCount}/{thresh} RED</span>}
+            </div>
+            <span>Updated: {fmtTime(data.last_seen)}</span>
+          </div>
+        </div>
+      );
+    }
+
+    /* ── Patients monitor ─────────────────────────────────────────────────── */
+    function PatientsMonitor({ patients, alerts }) {
+      const list = Object.values(patients).sort((a, b) => {
+        const order = { Red: 0, Yellow: 1, Green: 2 };
+        return (order[a.severity] ?? 3) - (order[b.severity] ?? 3);
       });
-  }
 
-  // Load initial SMS state from server — single authoritative fetch, no race condition
-  fetch("/api/alerts/sms").then(r => r.json()).then(d => applySmsState(d.sms_enabled));
+      return (
+        <div className="bg-[#0b1220] p-6 rounded-3xl border border-blue-900 mb-8">
+          <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-4 mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-white">Patients Live Monitor</h2>
+              <p className="text-blue-400 text-sm">● Real-time via MQTT + WebSocket</p>
+            </div>
+            <span className="text-gray-500 text-sm">{list.length} patient{list.length !== 1 ? "s" : ""} active</span>
+          </div>
 
-  // Live updates
-  socket.on("patient_update", upsertCard);
-  socket.on("summary_update", updateTriage);
-  socket.on("alert_update", updateAlertBadge);
-  socket.on("alert_reset", () => {
-    document.querySelectorAll(".alert-badge").forEach(el => {
-      el.textContent = "";
-      el.className = "alert-badge";
-    });
-  });
-
-  function upsertCard(data) {
-    const grid = document.getElementById("cards-grid");
-    const waiting = document.getElementById("waiting-msg");
-    if (waiting) waiting.remove();
-
-    const pid = data.patient_id;
-    let card = cards[pid];
-
-    if (!card) {
-      card = document.createElement("div");
-      card.className = "patient-card";
-      card.id = `card-${pid}`;
-      card.innerHTML = cardHTML(data);
-      grid.appendChild(card);
-      cards[pid] = card;
-      socket.emit("subscribe_patient", { patient_id: pid });
-    } else {
-      card.innerHTML = cardHTML(data);
+          {list.length === 0 ? (
+            <div className="text-center py-16 text-gray-600">
+              <div className="animate-spin mx-auto mb-4" style={{ width: 36, height: 36, border: "3px solid #1e3a5f", borderTopColor: "#3b82f6", borderRadius: "50%" }} />
+              <p className="text-base">Waiting for patient data…</p>
+              <p className="text-sm mt-1 text-gray-700">Ensure the MQTT broker is reachable and patients are publishing.</p>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {list.map(p => (
+                <PatientCard key={p.patient_id} data={p} alertStatus={alerts[p.patient_id]} />
+              ))}
+            </div>
+          )}
+        </div>
+      );
     }
 
-    card.className = `patient-card severity-${data.severity}`;
-  }
+    /* ── Bottom status bar ────────────────────────────────────────────────── */
+    function BottomStatus({ mqttStatus, summary, connectedSince }) {
+      const [uptime, setUptime] = useState("—");
 
-  function cardHTML(d) {
-    const ts = d.last_seen ? new Date(d.last_seen * 1000).toLocaleTimeString() : "—";
-    return `
-      <div class="card-header">
-        <span class="patient-id">Patient ${d.patient_id}</span>
-        <span class="severity-badge badge-${d.severity}">${d.severity}</span>
-      </div>
-      <div class="vitals-grid">
-        <div class="vital-item">
-          <div class="vital-label">Heart Rate</div>
-          <div class="vital-value">${d.heart_rate ?? "—"}<span class="vital-unit">bpm</span></div>
-        </div>
-        <div class="vital-item">
-          <div class="vital-label">SpO₂</div>
-          <div class="vital-value">${d.spo2 ?? "—"}<span class="vital-unit">%</span></div>
-        </div>
-        <div class="vital-item">
-          <div class="vital-label">Temperature</div>
-          <div class="vital-value">${d.temperature ?? "—"}<span class="vital-unit">°C</span></div>
-        </div>
-        <div class="vital-item">
-          <div class="vital-label">Movement</div>
-          <div class="vital-value">${d.movement ?? "—"}</div>
-        </div>
-      </div>
-      <div class="card-footer">
-        <span class="confidence">Conf: ${d.confidence}%</span>
-        <span id="alert-badge-${d.patient_id}" class="alert-badge"></span>
-        <span>Updated: ${ts}</span>
-      </div>`;
-  }
+      useEffect(() => {
+        function calc() {
+          if (!connectedSince) { setUptime("—"); return; }
+          const s = Math.floor(Date.now() / 1000 - connectedSince);
+          const h = Math.floor(s / 3600);
+          const m = Math.floor((s % 3600) / 60);
+          setUptime(h > 0 ? `${h}h ${m}m` : `${m}m`);
+        }
+        calc();
+        const iv = setInterval(calc, 60000);
+        return () => clearInterval(iv);
+      }, [connectedSince]);
 
-  function updateTriage(summary) {
-    document.getElementById("count-green").textContent = `Green: ${summary.severity_counts.Green ?? 0}`;
-    document.getElementById("count-yellow").textContent = `Yellow: ${summary.severity_counts.Yellow ?? 0}`;
-    document.getElementById("count-red").textContent = `Red: ${summary.severity_counts.Red ?? 0}`;
+      const items = [
+        { label: "ESP32 Devices",     value: `${summary.total_active || 0} Connected`, ok: null },
+        { label: "MQTT Server",       value: mqttStatus.connected ? "Active" : `Reconnecting… (attempt #${mqttStatus.reconnect_attempts || 0})`, ok: mqttStatus.connected },
+        { label: "Prediction Engine", value: "Running",          ok: true  },
+        { label: "Database",          value: "In-memory / Live", ok: true  },
+        { label: "Uptime",            value: uptime,             ok: null  },
+      ];
 
-    const banner = document.getElementById("alert-banner");
-    if (summary.red_patients && summary.red_patients.length > 0) {
-      const names = summary.red_patients.map(p => p.patient_id).join(", ");
-      banner.textContent = `⚠ CRITICAL: ${summary.red_patients.length} patient(s) in RED — ${names}`;
-      banner.style.display = "block";
-    } else {
-      banner.style.display = "none";
+      return (
+        <div className="bg-[#071226] border border-blue-900 rounded-2xl p-6 flex flex-wrap justify-between gap-6">
+          {items.map(({ label, value, ok }) => (
+            <div key={label}>
+              <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">{label}</p>
+              <p className={`text-sm font-semibold ${ok === false ? "text-red-400" : ok === true ? "text-green-400" : "text-gray-300"}`}>
+                {ok != null && <span className="mr-1">{ok ? "●" : "○"}</span>}
+                {value}
+              </p>
+            </div>
+          ))}
+        </div>
+      );
     }
-  }
 
-  function updateAlertBadge(data) {
-    const badge = document.getElementById(`alert-badge-${data.patient_id}`);
-    if (!badge) return;
-    if (data.sms_sent) {
-      badge.textContent = "SMS sent ✓";
-      badge.className = "alert-badge sent";
-    } else if (data.consecutive_red_readings > 0) {
-      badge.textContent = `${data.consecutive_red_readings}/${data.alert_threshold} RED`;
-      badge.className = "alert-badge building";
-    } else {
-      badge.textContent = "";
-      badge.className = "alert-badge";
+    /* ── Root App ─────────────────────────────────────────────────────────── */
+    function App() {
+      const [patients,       setPatients]       = useState({});
+      const [summary,        setSummary]        = useState({ severity_counts: { Green: 0, Yellow: 0, Red: 0 }, red_patients: [], total_active: 0 });
+      const [alerts,         setAlerts]         = useState({});
+      const [smsEnabled,     setSmsEnabled]     = useState(true);
+      const [mqttStatus,     setMqttStatus]     = useState({ connected: false, broker: "broker.hivemq.com", reconnect_attempts: 0 });
+      const [connectedSince, setConnectedSince] = useState(null);
+      const [time,           setTime]           = useState(new Date());
+
+      useEffect(() => {
+        /* Seed initial state */
+        fetch("/api/patients").then(r => r.json()).then(list => {
+          const map = {};
+          list.forEach(p => { map[p.patient_id] = p; });
+          setPatients(map);
+          list.forEach(p => socket.emit("subscribe_patient", { patient_id: p.patient_id }));
+        }).catch(() => {});
+
+        fetch("/api/summary").then(r => r.json()).then(setSummary).catch(() => {});
+        fetch("/api/alerts/sms").then(r => r.json()).then(d => setSmsEnabled(d.sms_enabled)).catch(() => {});
+
+        /* MQTT / status polling */
+        function pollStatus() {
+          fetch("/api/status").then(r => r.json()).then(d => {
+            setMqttStatus({
+              connected:           d.mqtt.mqtt_connected,
+              broker:              d.mqtt.broker,
+              reconnect_attempts:  d.mqtt.reconnect_attempts,
+            });
+            if (d.mqtt.connected_since) setConnectedSince(d.mqtt.connected_since);
+          }).catch(() => {});
+        }
+        pollStatus();
+        const pollIv = setInterval(pollStatus, 10000);
+
+        /* Clock */
+        const clockIv = setInterval(() => setTime(new Date()), 1000);
+
+        /* Live events */
+        socket.on("patient_update", data => {
+          setPatients(prev => ({ ...prev, [data.patient_id]: data }));
+          socket.emit("subscribe_patient", { patient_id: data.patient_id });
+        });
+        socket.on("summary_update", setSummary);
+        socket.on("alert_update",  data => setAlerts(prev => ({ ...prev, [data.patient_id]: data })));
+        socket.on("alert_reset",   ()   => setAlerts({}));
+
+        return () => {
+          clearInterval(pollIv);
+          clearInterval(clockIv);
+          socket.off("patient_update");
+          socket.off("summary_update");
+          socket.off("alert_update");
+          socket.off("alert_reset");
+        };
+      }, []);
+
+      function onResetAlerts() {
+        fetch("/api/alerts/reset", { method: "POST" }).then(() => setAlerts({})).catch(() => {});
+      }
+
+      const redPatients = summary.red_patients || [];
+
+      return (
+        <div className="flex flex-col lg:flex-row bg-[#020817] text-white min-h-screen">
+
+          <Sidebar
+            mqttConnected={mqttStatus.connected}
+            smsEnabled={smsEnabled}
+            setSmsEnabled={setSmsEnabled}
+            onResetAlerts={onResetAlerts}
+          />
+
+          <div className="flex-1 p-6 lg:p-8 overflow-auto">
+
+            {/* Header */}
+            <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-4 mb-8">
+              <div>
+                <h1 className="text-3xl lg:text-5xl font-bold mb-2">
+                  VitalSense Smart Triage Dashboard
+                </h1>
+                <p className="text-blue-400">AI-powered Emergency Monitoring System</p>
+              </div>
+              <div className="lg:text-right">
+                <p className="text-2xl lg:text-3xl font-bold">{time.toLocaleTimeString()}</p>
+                <p className="text-gray-400 text-sm">{time.toDateString()}</p>
+              </div>
+            </div>
+
+            {/* Critical alert banner */}
+            {redPatients.length > 0 && (
+              <div className="alert-pulse border border-red-400 rounded-2xl p-5 text-lg font-bold mb-8 shadow-lg shadow-red-900/40 text-white">
+                🚨 CRITICAL ALERT — {redPatients.length} patient{redPatients.length > 1 ? "s" : ""} require{redPatients.length === 1 ? "s" : ""} immediate attention:{" "}
+                {redPatients.map(p => p.patient_id).join(", ")}
+              </div>
+            )}
+
+            <StatsCards summary={summary} />
+            <PatientsMonitor patients={patients} alerts={alerts} />
+            <BottomStatus mqttStatus={mqttStatus} summary={summary} connectedSince={connectedSince} />
+
+          </div>
+        </div>
+      );
     }
-  }
-</script>
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+{% endraw %}
+  </script>
 </body>
 </html>

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VitalSense Smart Triage Dashboard</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <style>
+    body { margin: 0; background: #020817; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    /* ── Icons (thin wrappers around Lucide UMD) ── */
+    function Icon({ name, size = 20 }) {
+      const ref = useRef(null);
+      useEffect(() => {
+        if (ref.current && window.lucide) {
+          ref.current.innerHTML = "";
+          const svg = lucide.createElement(lucide[name]);
+          svg.setAttribute("width", size);
+          svg.setAttribute("height", size);
+          svg.setAttribute("stroke", "currentColor");
+          svg.setAttribute("stroke-width", "2");
+          svg.setAttribute("fill", "none");
+          ref.current.appendChild(svg);
+        }
+      }, [name, size]);
+      return <span ref={ref} style={{ display: "inline-flex", alignItems: "center" }} />;
+    }
+
+    /* ── Sidebar ── */
+    function Sidebar() {
+      const links = [
+        { icon: "LayoutDashboard", label: "Dashboard", active: true },
+        { icon: "Users",           label: "Patients" },
+        { icon: "Bell",            label: "Alerts" },
+        { icon: "Monitor",         label: "Devices" },
+        { icon: "BarChart3",       label: "Analytics" },
+        { icon: "FileText",        label: "Reports" },
+        { icon: "Settings",        label: "Settings" },
+      ];
+
+      return (
+        <div className="w-full lg:w-64 min-h-screen bg-[#071226] border-r border-blue-900 p-5 flex flex-col justify-between">
+          <div>
+            <div className="mb-10">
+              <h1 className="text-3xl font-bold text-white">VitalSense</h1>
+              <p className="text-blue-400 text-sm">Smart Triage</p>
+            </div>
+
+            <div className="space-y-3">
+              {links.map(({ icon, label, active }) => (
+                <div
+                  key={label}
+                  className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer ${
+                    active ? "bg-blue-600 text-white" : "text-gray-300 hover:bg-[#0f172a]"
+                  }`}
+                >
+                  <Icon name={icon} />
+                  <span>{label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-[#0f172a] p-4 rounded-2xl border border-green-500 mt-10">
+            <h2 className="text-green-400 font-bold">System Status</h2>
+            <p className="text-sm text-gray-300 mt-2">● All Systems Operational</p>
+          </div>
+        </div>
+      );
+    }
+
+    /* ── Stats Cards ── */
+    function StatsCards() {
+      const stats = [
+        { title: "Patients Active",   value: "24", color: "text-blue-400",   border: "border-blue-900" },
+        { title: "Critical Cases",    value: "3",  color: "text-red-500",    border: "border-red-900" },
+        { title: "Nurses Online",     value: "12", color: "text-green-400",  border: "border-green-900" },
+        { title: "Devices Connected", value: "24", color: "text-purple-400", border: "border-purple-900" },
+      ];
+
+      return (
+        <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+          {stats.map(({ title, value, color, border }) => (
+            <div key={title} className={`bg-[#0f172a] p-6 rounded-2xl border ${border}`}>
+              <p className="text-gray-400 mb-2">{title}</p>
+              <h2 className={`text-5xl font-bold ${color}`}>{value}</h2>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    /* ── Patient Card ── */
+    function PatientCard({ id, status, heart, spo2, temp, border }) {
+      return (
+        <div className={`bg-[#071226] border ${border} rounded-2xl p-6`}>
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h2 className="text-3xl font-bold">{id}</h2>
+              <p className="text-gray-400">{status}</p>
+            </div>
+            <div className="text-4xl animate-pulse">❤️</div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            {[
+              { label: "Heart Rate", val: heart, unit: "bpm" },
+              { label: "SpO2",       val: spo2,  unit: "%" },
+              { label: "Temp",       val: temp,  unit: "°F" },
+            ].map(({ label, val, unit }) => (
+              <div key={label}>
+                <p className="text-gray-400 text-sm">{label}</p>
+                <h3 className="text-3xl font-bold mt-2">{val}</h3>
+                <p className="text-gray-500">{unit}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-6 h-1 bg-gray-700 rounded-full overflow-hidden">
+            <div className="h-full bg-green-400 animate-pulse w-3/4"></div>
+          </div>
+        </div>
+      );
+    }
+
+    /* ── Patients Monitor ── */
+    function PatientsMonitor() {
+      const patients = [
+        { id: "P101", status: "CRITICAL", heart: "126", spo2: "89",  temp: "102.4", border: "border-red-500" },
+        { id: "P102", status: "MODERATE", heart: "98",  spo2: "93",  temp: "99.1",  border: "border-yellow-500" },
+        { id: "P103", status: "STABLE",   heart: "72",  spo2: "97",  temp: "98.6",  border: "border-green-500" },
+      ];
+
+      return (
+        <div className="bg-[#0b1220] p-6 rounded-3xl border border-blue-900 mb-8">
+          <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-4 mb-8">
+            <div>
+              <h1 className="text-3xl font-bold">Patients Live Monitor</h1>
+              <p className="text-blue-400">● Real-time</p>
+            </div>
+            <button className="bg-[#0f172a] px-5 py-3 rounded-xl border border-blue-900 text-white hover:bg-blue-600 transition">
+              View All Patients
+            </button>
+          </div>
+
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {patients.map((p) => <PatientCard key={p.id} {...p} />)}
+          </div>
+        </div>
+      );
+    }
+
+    /* ── Bottom Status Bar ── */
+    function BottomStatus() {
+      const items = [
+        "ESP32 Devices — 24 Connected",
+        "MQTT Server — Active",
+        "Prediction Engine — Running",
+        "Database — Synced",
+        "Uptime — 2h 45m",
+      ];
+
+      return (
+        <div className="bg-[#071226] border border-blue-900 rounded-2xl p-6 flex flex-wrap justify-between gap-4">
+          {items.map((item) => (
+            <div key={item} className="text-gray-300">{item}</div>
+          ))}
+        </div>
+      );
+    }
+
+    /* ── Root App ── */
+    function App() {
+      const [time, setTime] = useState(new Date());
+
+      useEffect(() => {
+        const timer = setInterval(() => setTime(new Date()), 1000);
+        return () => clearInterval(timer);
+      }, []);
+
+      return (
+        <div className="flex flex-col lg:flex-row bg-[#020817] text-white min-h-screen">
+          <Sidebar />
+
+          <div className="flex-1 p-8 overflow-auto">
+            {/* Header */}
+            <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-6 mb-8">
+              <div>
+                <h1 className="text-3xl md:text-5xl font-bold mb-2">
+                  VitalSense Smart Triage Dashboard
+                </h1>
+                <p className="text-blue-400">AI-powered Emergency Monitoring System</p>
+              </div>
+              <div className="text-left lg:text-right">
+                <p className="text-2xl md:text-3xl font-bold">{time.toLocaleTimeString()}</p>
+                <p className="text-gray-400">{time.toDateString()}</p>
+              </div>
+            </div>
+
+            {/* Critical Alert */}
+            <div className="bg-red-700 border border-red-400 rounded-2xl p-6 text-xl md:text-2xl font-bold mb-8 animate-pulse shadow-lg">
+              🚨 CRITICAL ALERT — Patient P101 requires immediate attention!
+            </div>
+
+            <StatsCards />
+            <PatientsMonitor />
+            <BottomStatus />
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
