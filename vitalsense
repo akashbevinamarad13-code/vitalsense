@@ -1,0 +1,19 @@
+app.py
+alert.py
+classifier.py
+config.py
+model_loader.py
+mqtt_handler.py
+patient_store.py
+simulator.py
+demo_simulator.py
+create_dummy_model.py
+requirements.txt
+templates/dashboard.html
+esp32/sketch.ino
+esp32/diagram.json
+esp32/libraries.txt
+esp32/wokwi-project.txt
+replit.md
+.gitignore
+README.md              ← new
